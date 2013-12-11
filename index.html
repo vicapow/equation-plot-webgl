@@ -2,20 +2,65 @@
 <html>
   <head>
     <style>
-      body{ margin: 0; }
+      body{ 
+        margin: 0;
+        font-family: helvetica;
+      }
+      .equation{
+        background: none;
+        border: none;
+        color: white;
+        outline: none;
+        font-size: inherit;
+        position: absolute;
+        top: 0;
+        width: 100%;
+        margin: 0;
+        padding: 0;
+        padding-left: 10px;
+      }
+      .equation.invalid{
+        color: red;
+      }
+      .toolbar{
+        overflow: hidden;
+        position: absolute;
+        left: 0;
+        top: 0;
+        width: 100%;
+        color: white;
+        font-size: 30px;
+        margin: 0;
+        padding: 0;
+      }
+      .twitter-btn{
+        position: absolute;
+        bottom: 10px;
+        right: 10px;
+      }
     </style>
     <title></title>
     <script src="three.min.js"></script>
+    <script src="d3.js"></script>
+    <script src="math.js"></script>
     <script src="jquery-1.10.2.min.js"></script>
   </head>
   <body>
+    <div class="toolbar">
+        z = <input class="equation" type="text" value=""/>
+    </div>
     <div id="container"></div>
     <script>
 
   // set the scene size
   var w = window.innerWidth
     , h = window.innerHeight
-
+    , math = mathjs()
+    , eq = decodeURIComponent(window.location.hash.replace(/^#/,'')) || 'x * y'
+    , prev_eq
+    , n = 40
+    , matrix
+    , sin = Math.sin, cos = Math.cos, e = Math.E, pi = Math.PI, pow = Math.pow
   // get the DOM element to attach to
   // - assume we've got jQuery to hand
     , $container = $('#container')
@@ -23,14 +68,35 @@
   // create a WebGL renderer, camera
   // and a scene
     , renderer = new THREE.WebGLRenderer()
-    , camera = new THREE.PerspectiveCamera(45, w / h, 0.1, 10000)
+    , camera = new THREE.PerspectiveCamera(45, w / h, 0.1, 4000)
     , scene = new THREE.Scene()
 
-  // the camera starts at 0,0,0 so pull it back
-  setInterval(function(){
-    camera.position.z = Math.random() * 100 + 200
-    renderer.render(scene, camera)
-  }, 300)
+    , dt = 0
+    , prev_t = 0
+    , axis_y = new THREE.Vector3(0, 1, 0)
+    , axis_x = new THREE.Vector3(1, 0, 0)
+    , vector = new THREE.Vector3(0, 500, 2000)
+    , rot_y = 0
+    , angle = 0
+    
+d3.timer(function(t){
+  dt = t - prev_t
+  prev_t = t
+  vector = new THREE.Vector3(0, 500, 2000)
+  matrix = new THREE.Matrix4().makeRotationAxis(axis_x, rot_y)
+  vector.applyMatrix4(matrix)
+  matrix = new THREE.Matrix4().makeRotationAxis(axis_y, t / 50000 * 2 * Math.PI)
+  vector.applyMatrix4(matrix)
+  camera.position = vector
+  camera.lookAt(new THREE.Vector3(0, 0, 0))
+  renderer.render(scene, camera)
+})
+
+var drag = d3.behavior.drag()
+.on('drag', function(d, i){
+  rot_y += d3.event.dy / h * pi * 2
+})
+d3.select('body').call(drag)
 
   // start the renderer
   renderer.setSize(w, h)
@@ -38,39 +104,109 @@
   // attach the render-supplied DOM element
   $container.append(renderer.domElement)
 
-  // create the sphere's material
-  var sphereMaterial = new THREE.MeshLambertMaterial({color: 0xFFFF00})
 
-  // set up the sphere vars
-  var n = 128
-  var radius = 100, segments = n, rings = n
 
-  // create a new mesh with sphere geometry -
-  // we will cover the sphereMaterial next!
-  var sphere = new THREE.Mesh(
-     new THREE.SphereGeometry(radius, segments, rings)
-     , sphereMaterial)
+var particles = new THREE.Geometry()
+  , pMaterial = new THREE.ParticleSystemMaterial({
+      color: 0xffffff, size: 10, opacity: 0.5, transparent: true })
+  , system = new THREE.ParticleSystem(particles, pMaterial)
 
-  // add the sphere to the scene
-  scene.add(sphere)
 
-  // and the camera
-  scene.add(camera)
+update_particles(function(x, y){ return x * y }, w, n)
 
-  // create a point light
-  var pointLight = new THREE.PointLight( 0xFFFFFF)
+function update_particles(func, s, n){
+  particles.verticesNeedUpdate = true
+  particles.vertices = []
+  for(var i = 0; i < n; i++) 
+    for(var j = 0; j < n; j++)
+      particles.vertices.push(new THREE.Vector3(
+        i * s / n - s / 2, func(i/n, j/n) * s - s / 2, j * s / n - s / 2))
+  // particles.verticesNeedUpdate = false
+}
 
-  // set its position
-  pointLight.position.x = 10
-  pointLight.position.y = 50
-  pointLight.position.z = 330
+scene.add(system)
 
-  // add to the scene
-  scene.add(pointLight)
 
-  // draw!
-  renderer.render(scene, camera)
+// and the camera
+scene.add(camera)
+
+// create a point light
+var pointLight = new THREE.PointLight(0xFFFFFF)
+
+// set its position
+pointLight.position.x = 10
+pointLight.position.y = 50
+pointLight.position.z = w
+
+// add to the scene
+scene.add(pointLight)
+
+// draw!
+renderer.render(scene, camera)
+
+d3.select('.equation').on('keyup', function(){
+  eq = equation(this.value)
+})
+.on('keydown', function(){
+  var change = 0
+  if(d3.event.keyIdentifier === 'Down') change = -1
+  else if(d3.event.keyIdentifier === 'Up') change = 1
+  if(change !== 0){
+    var pos = this.selectionStart
+    this.value = updateNumbetInString(this.value, pos, change)
+    this.selectionEnd = this.selectionStart = pos
+    d3.event.preventDefault()
+    eq = equation(this.value)
+  }
+})
+.call(function(selector){
+  var el = selector.node()
+  el.value = equation(eq)
+  el.focus()
+})
+
+
+var digit = /(\d|\.|\-)/
+function updateNumbetInString(string, pos, change){
+  if(pos === string.length) pos = pos - 1
+  if(!string[pos].match(digit)){
+    if(string[pos-1].match(digit)) pos--
+    else if(string[pos+1].match(digit)) pos++
+    else return string
+  }
+  var l = pos, r = pos
+  while(l-1 >= 0 && string[l-1].match(digit)) l--
+  while(r+1 < string.length && string[r+1].match(digit)) r++
+  var num = Number(string.substring(l, r + 1))
+  num = num + change
+  return string.substring(0, l) + num + string.substring(r + 1)
+}
+
+// these regular expressions replace 'x' and 'y' with their numerical value in 
+// the provided expression
+function equation(eq){
+  if(eq === prev_eq) return eq
+  prev_eq = eq
+  try{
+    // eval('function func(x,y){ return ' + eq + ' }')
+    // update_particles(func, w, n)
+    update_particles(function(x, y){
+      var equation = 'x= ' + x + '; y=' + y + '; ' + eq
+      return math.eval(equation)[0]
+    }, w, n)
+    window.location.hash = encodeURIComponent(eq)
+  }catch(e){
+    d3.select('.equation').classed('invalid', true)
+    return eq
+  }
+  d3.select('.equation').classed('invalid', false)
+  return eq
+}
 
     </script>
+  <div class="twitter-btn">
+  <a href="https://twitter.com/share" class="twitter-share-button" data-via="vicapow">Tweet</a>
+<script>!function(d,s,id){var js,fjs=d.getElementsByTagName(s)[0],p=/^http:/.test(d.location)?'http':'https';if(!d.getElementById(id)){js=d.createElement(s);js.id=id;js.src=p+'://platform.twitter.com/widgets.js';fjs.parentNode.insertBefore(js,fjs);}}(document, 'script', 'twitter-wjs');</script>
+  </div>
   </body>
 </html>
