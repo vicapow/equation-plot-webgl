@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <style>
+      body{ margin: 0; }
+    </style>
+    <title></title>
+    <script src="three.min.js"></script>
+    <script src="jquery-1.10.2.min.js"></script>
+  </head>
+  <body>
+    <div id="container"></div>
+    <script>
+
+  // set the scene size
+  var w = window.innerWidth
+    , h = window.innerHeight
+
+  // get the DOM element to attach to
+  // - assume we've got jQuery to hand
+    , $container = $('#container')
+
+  // create a WebGL renderer, camera
+  // and a scene
+    , renderer = new THREE.WebGLRenderer()
+    , camera = new THREE.PerspectiveCamera(45, w / h, 0.1, 10000)
+    , scene = new THREE.Scene()
+
+  // the camera starts at 0,0,0 so pull it back
+  setInterval(function(){
+    camera.position.z = Math.random() * 100 + 200
+    renderer.render(scene, camera)
+  }, 300)
+
+  // start the renderer
+  renderer.setSize(w, h)
+
+  // attach the render-supplied DOM element
+  $container.append(renderer.domElement)
+
+  // create the sphere's material
+  var sphereMaterial = new THREE.MeshLambertMaterial({color: 0xFFFF00})
+
+  // set up the sphere vars
+  var n = 128
+  var radius = 100, segments = n, rings = n
+
+  // create a new mesh with sphere geometry -
+  // we will cover the sphereMaterial next!
+  var sphere = new THREE.Mesh(
+     new THREE.SphereGeometry(radius, segments, rings)
+     , sphereMaterial)
+
+  // add the sphere to the scene
+  scene.add(sphere)
+
+  // and the camera
+  scene.add(camera)
+
+  // create a point light
+  var pointLight = new THREE.PointLight( 0xFFFFFF)
+
+  // set its position
+  pointLight.position.x = 10
+  pointLight.position.y = 50
+  pointLight.position.z = 330
+
+  // add to the scene
+  scene.add(pointLight)
+
+  // draw!
+  renderer.render(scene, camera)
+
+    </script>
+  </body>
+</html>
