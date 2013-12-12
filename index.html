@@ -204,6 +204,11 @@ function equation(eq){
   return eq
 }
 
+window.onresize = function() {
+  var w = window.innerWidth
+  var h = window.innerHeight
+  renderer.setSize(w, h)
+}
     </script>
   <div class="twitter-btn">
 <a href="https://twitter.com/share" class="twitter-share-button" data-url="http://vicapow.github.io/equation-plot-webgl/index.html" data-via="vicapow">Tweet</a>
